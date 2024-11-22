@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SolidWorks Activity Log</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .analysis-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .analysis-panel select, .analysis-panel button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+
+        .analysis-panel button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .analysis-panel button:hover {
+            background-color: #0056b3;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #444;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        th:hover {
+            background-color: #e9ecef;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        #searchBar {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .output {
+            margin-top: 10px;
+            font-weight: 500;
+            font-size: 1.1em;
+            color: #007bff;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+            
+            .analysis-panel select, .analysis-panel button {
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>SolidWorks Activity Log</h1>
+
+    <div class="analysis-panel">
+        <label>Find the Average</label>
+        <select id="metricDropdown">
+            <option value="timeSpentSeconds">Active Time</option>
+            <option value="lastRebuildTimeSeconds">Rebuild Time</option>
+            <option value="planeCount">Plane Count</option>
+            <option value="sketchCount">Sketch Count</option>
+            <option value="solidBodyCount">Solid Body Count</option>
+            <option value="surfaceBodyCount">Surface Body Count</option>
+            <option value="componentCount">Number of Components</option>
+        </select>
+        <label>of all</label>
+        <select id="fileTypeDropdown">
+            <option value="Part">Part</option>
+            <option value="Assembly">Assembly</option>
+        </select>
+        <button id="calculateButton">Calculate</button>
+        <div class="output" id="output"></div>
+    </div>
+
+    <input type="text" id="searchBar" placeholder="Search for files...">
+    
+    <table id="logTable">
+        <thead>
+            <tr>
+                <th onclick="sortTable(0)">File Name</th>
+                <th onclick="sortTable(1)">File Type</th>
+                <th onclick="sortTable(2)">Active Time (s)</th>
+                <th onclick="sortTable(3)">Rebuild Time (s)</th>
+                <th onclick="sortTable(4)">Feature Count</th>
+                <th onclick="sortTable(5)">Plane Count</th>
+                <th onclick="sortTable(6)">Sketch Count</th>
+                <th onclick="sortTable(7)">Solid Body Count</th>
+                <th onclick="sortTable(8)">Surface Body Count</th>
+                <th onclick="sortTable(9)">Number of Components</th>
+                <th onclick="sortTable(10)">Last Updated</th>
+            </tr>
+        </thead>
+        <tbody id="logTableBody"></tbody>
+    </table>
+
+    <script>
+        let jsonData;
+
+        function readJsonFile() {
+            const fs = new ActiveXObject("Scripting.FileSystemObject");
+            const file = fs.OpenTextFile("U:\\SolidTracker\\SolidWorksActivityLog.json", 1);
+            const content = file.ReadAll();
+            file.Close();
+            
+            try {
+                jsonData = JSON.parse(content);
+                updateTable(jsonData);
+            } catch (e) {
+                console.error("Error parsing JSON:", e);
+            }
+        }
+
+        function updateTable(data) {
+            const tableBody = document.getElementById("logTableBody");
+            data.documents.forEach(doc => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${doc.name}</td>
+                    <td>${doc.fileType}</td>
+                    <td>${doc.timeSpentSeconds || 0}</td>
+                    <td>${doc.lastRebuildTimeSeconds || 0}</td>
+                    <td>${doc.featureCount || 0}</td>
+                    <td>${doc.planeCount || 0}</td>
+                    <td>${doc.sketchCount || 0}</td>
+                    <td>${doc.solidBodyCount || 0}</td>
+                    <td>${doc.surfaceBodyCount || 0}</td>
+                    <td>${doc.componentCount || 0}</td>
+                    <td>${doc.lastUpdated}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Call this when the page loads
+        readJsonFile();
+
+        // Disable fileTypeDropdown if "Number of Components" is selected
+        const metricDropdown = document.getElementById("metricDropdown");
+        const fileTypeDropdown = document.getElementById("fileTypeDropdown");
+
+        metricDropdown.addEventListener("change", () => {
+            if (metricDropdown.value === "componentCount") {
+                fileTypeDropdown.value = "Assembly";
+                fileTypeDropdown.disabled = true;
+            } else {
+                fileTypeDropdown.disabled = false;
+            }
+        });
+
+        // Calculate average based on selected metric and file type
+        document.getElementById("calculateButton").addEventListener("click", function () {
+            const metric = metricDropdown.value;
+            const fileType = fileTypeDropdown.value;
+            const relevantDocs = jsonData.documents.filter(doc => doc.fileType === fileType);
+
+            if (relevantDocs.length === 0) {
+                document.getElementById("output").innerText = "No matching documents found.";
+                return;
+            }
+
+            const sum = relevantDocs.reduce((acc, doc) => acc + (doc[metric] || 0), 0);
+            const average = sum / relevantDocs.length;
+
+            document.getElementById("output").innerText = `Average ${metric.replace(/([A-Z])/g, ' $1').toLowerCase()} of all ${fileType}s: ${average.toFixed(2)}`;
+        });
+
+        // Function to sort the table
+        function sortTable(columnIndex) {
+            const table = document.getElementById("logTable");
+            const rows = Array.from(table.rows).slice(1); // Exclude header row
+            const isAscending = table.dataset.sortOrder === "asc";
+            table.dataset.sortOrder = isAscending ? "desc" : "asc";
+
+            rows.sort((a, b) => {
+                const cellA = a.cells[columnIndex].innerText.toLowerCase();
+                const cellB = b.cells[columnIndex].innerText.toLowerCase();
+
+                if (!isNaN(cellA) && !isNaN(cellB)) {
+                    // Numeric comparison
+                    return isAscending ? cellA - cellB : cellB - cellA;
+                } else {
+                    // String comparison
+                    return isAscending
+                        ? cellA.localeCompare(cellB)
+                        : cellB.localeCompare(cellA);
+                }
+            });
+
+            const tableBody = document.getElementById("logTableBody");
+            rows.forEach(row => tableBody.appendChild(row));
+        }
+
+        // Function to filter the table based on search input
+        document.getElementById("searchBar").addEventListener("input", function () {
+            const filter = this.value.toLowerCase();
+            const rows = document.querySelectorAll("#logTableBody tr");
+
+            rows.forEach(row => {
+                const cells = row.querySelectorAll("td");
+                const matches = Array.from(cells).some(cell =>
+                    cell.innerText.toLowerCase().includes(filter)
+                );
+                row.style.display = matches ? "" : "none";
+            });
+        });
+    </script>
+</body>
+</html>
